@@ -3,36 +3,34 @@
 import options
 export options
 
+import collections, posix, os
+import morelinux/netlinkimpl
+export RtAttr
+
 type
   NlLink* = object
     index*: int32
     attrs*: seq[RtAttr]
-
-  RtAttr* = object
-    kind*: uint16
-    data*: string
-
-include morelinux/netlinkimpl
 
 proc parseLink(response: string): NlLink =
   let ifinfo = unpackStruct(response[0..^1], ifinfomsg)
   let rtAttrs = unpackRtAttrs(response[sizeof(ifinfomsg)..^1])
   return NlLink(index: ifinfo.index, attrs: rtAttrs)
 
-proc findAttr(attrs: seq[RtAttr], kind: uint16): string =
+proc findAttr*(attrs: seq[RtAttr], kind: uint16): string =
   for attr in attrs:
     if attr.kind == kind:
       return attr.data
 
   return nil
 
-proc findAttr(link: NlLink, kind: uint16): string =
+proc findAttr*(link: NlLink, kind: uint16): string =
   return link.attrs.findAttr(kind)
 
 proc parseNested(data: string): seq[RtAttr] =
   return unpackRtAttrs(data)
 
-proc asciizToString(s: string): string =
+proc asciizToString*(s: string): string =
   if s == nil:
     return nil
   if s.len == 0 or s[^1] != '\0':
@@ -51,8 +49,10 @@ proc kind*(link: NlLink): string =
 proc getLinks*(): seq[NlLink] =
   let msg = ifinfomsg()
   var data = makeMessage(RTM_GETLINK, bulk=true, body=packStruct(msg))
-  let sock = sendMessage(NETLINK_ROUTE, data)
+
+  let sock = newNetlinkSocket(NETLINK_ROUTE)
   defer: discard close(sock)
+  sock.sendMessage(data)
 
   result = @[]
   for response in readResponse(sock, bulk=true):
