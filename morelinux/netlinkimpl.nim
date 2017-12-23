@@ -160,9 +160,10 @@ proc rtaAlign*(len: int): int =
 proc unpackRtAttrs*(data: string): seq[RtAttr] =
   result = @[]
   var i = 0
+  assert sizeof(rtattr_hdr) == 4
   while i < data.len:
     let hdr = unpackStruct(data[i..<i+sizeof(rtattr_hdr)], rtattr_hdr)
-    result.add(RtAttr(kind: hdr.kind, data: data[i+4..<i+hdr.len.int]))
+    result.add(RtAttr(kind: hdr.kind, data: data[i+4..<min(i+hdr.len.int, data.len)]))
     i += rtaAlign(hdr.len.int)
 
 proc readResponse*(sock: SocketHandle, bulk=false, ignoreError=false): seq[string] =
